@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-import sys,time
+import sys,time,os
 from daemon import Daemon
 from apache_manager import ApacheManager
 
@@ -11,7 +11,6 @@ class Argus(Daemon):
         super(Argus, self).__init__(pidfile, stdin, stdout, stderr)
         self.config_file = config_file
         self.configured = False
-        self.output_file = 'argus.out'
         self.metrics_names = set(['busy_workers',
                             'bytes_per_request',
                             'bytes_per_second',
@@ -22,10 +21,12 @@ class Argus(Daemon):
                             'total_traffic',
                             'uptime'])
         self.sampling_rate = 2
-        self.flush_interval = 10
+        self.flush_interval = 10.0
         self.manager = None
         self.last_flush = 0.0
         self.write_header = True
+        self.cwd = os.getcwd()
+        self.output_file = self.cwd + '/argus.out'
 
 
     def flush_data(self, d):
@@ -56,7 +57,7 @@ class Argus(Daemon):
             f.write("\n")
 
         f.close()
-        self.last_flush = time.now()
+        self.last_flush = time.time()
 
 
     def apply_config_option(self, o, v):
@@ -64,11 +65,13 @@ class Argus(Daemon):
         Apply the configuration option read from the config file
         """
         if o == 'output_file':
-            self.output_file = v
+            #  always assume it is in the current directory where the
+            #  configuration file is
+            self.output_file = self.cwd + '/' + v
         elif o == 'sampling_rate':
-            self.sampling_rate = v
+            self.sampling_rate = int(v)
         elif o == 'flush_interval':
-            self.flush_interval = v
+            self.flush_interval = float(v)
         else:
             sys.stderr.write("unrecognized configuration option %s\n" % o)
             self.stop()
@@ -122,7 +125,7 @@ class Argus(Daemon):
             metrics = self.manager.server_metrics
 
             # we got the dictionary, now save everything
-            timestamp = time.now()
+            timestamp = time.time()
             data[timestamp] = metrics
             time.sleep(1.0 / self.sampling_rate)
 
