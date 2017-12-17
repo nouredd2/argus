@@ -65,9 +65,12 @@ class Argus(Daemon):
         Apply the configuration option read from the config file
         """
         if o == 'output_file':
-            #  always assume it is in the current directory where the
-            #  configuration file is
-            self.output_file = self.cwd + '/' + v
+            # check if it starts with '/' then take the path as it is,
+            # otherwise make it relative to the current directory
+            if v[0] == '/':
+                self.output_file = v
+            else:
+                self.output_file = self.cwd + '/' + v
         elif o == 'sampling_rate':
             self.sampling_rate = int(v)
         elif o == 'flush_interval':
