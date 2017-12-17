@@ -97,7 +97,12 @@ class Argus(Daemon):
         opts = [x.strip() for x in config_opts]
 
         for line in opts:
-            values = line.split()
+            # skip over comments
+            if len(line) <= 1:
+                continue
+            if line[0] == '#':
+                continue
+            values = line.split('=')
 
             option = values[0]
             value = values[1]
