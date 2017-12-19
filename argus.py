@@ -129,7 +129,14 @@ class Argus(Daemon):
         self.manager = ApacheManager()
         data = dict()
         while True:
-            self.manager.refresh()
+            while True:
+                try:
+                    self.manager.refresh()
+                    break
+                except:
+                    sys.stderr.write("mod_status is unreachable, retrying...\n")
+                    time.sleep(0.5 / self.sampling_rate)
+
             metrics = self.manager.server_metrics
 
             # we got the dictionary, now save everything
