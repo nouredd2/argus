@@ -48,7 +48,7 @@ static struct timer_list pmon_timer;
 static struct kmem_cache *pmon_cache;
 
 static struct workqueue_struct *pmon_wq;
-static struct work_struct *pmon_work;
+static struct work_struct pmon_work;
 
 static LIST_HEAD(head);
 
@@ -59,7 +59,7 @@ static void pmon_timer_callback(unsigned long data)
 	 */
 	int ret;
 
-	ret = queue_work(pmon_wq, pmon_work);
+	ret = queue_work(pmon_wq, &pmon_work);
 
 	if (ret == 0)
 		pr_err("Queueing the work in the work queue failed.\n\
@@ -109,7 +109,6 @@ static int __init pmon_init(void)
 
 	/* now try to allocate the memory space needed using slab allocator
 	*/
-	pr_info("pre cache allocation...\n");
 	pmon_cache = kmem_cache_create("pmon_cache", sizeof(struct pmon_entry),
 				       0, SLAB_POISON, NULL);
 	if (!pmon_cache) {
@@ -128,10 +127,11 @@ static int __init pmon_init(void)
 	/* initialize the work to be used for logging but will not start logging
 	 * until first timer has fired
 	 */
-	INIT_WORK(pmon_work, pmon_work_callback);
+	INIT_WORK(&pmon_work, pmon_work_callback);
 
 	num_entries = 0;
 
+	pr_info("module_loaded...\n");
 	return 0;
 
 exit_on_cache:
