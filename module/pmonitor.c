@@ -84,6 +84,7 @@ static void pmon_work_callback(struct work_struct *work)
 	entry->accept_q_size = 0;
 
 	list_add_tail(&(entry->llist), &head);
+	pr_info("work completed...\n");
 }
 
 static int __init pmon_init(void)
