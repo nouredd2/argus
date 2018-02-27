@@ -99,3 +99,31 @@ ENV/
 
 # mypy
 .mypy_cache/
+
+# modules stuff
+.*
+*.o
+*.o.*
+*.a
+*.s
+*.ko
+*.so
+*.so.dbg
+*.mod.c
+*.i
+*.lst
+*.symtypes
+*.order
+modules.builtin
+*.elf
+*.bin
+*.gz
+*.bz2
+*.lzma
+*.xz
+*.lzo
+*.patch
+*.gcno
+Module.symvers
+
+!.gitignore
