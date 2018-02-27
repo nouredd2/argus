@@ -1,3 +1,5 @@
+CONFIG_MODULE_SIG=n
+
 obj-m += pmonitor.o
 
 all:

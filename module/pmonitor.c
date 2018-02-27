@@ -109,6 +109,7 @@ static int __init pmon_init(void)
 
 	/* now try to allocate the memory space needed using slab allocator
 	*/
+	pr_info("pre cache allocation...\n");
 	pmon_cache = kmem_cache_create("pmon_cache", sizeof(struct pmon_entry),
 				       0, SLAB_POISON, NULL);
 	if (!pmon_cache) {
