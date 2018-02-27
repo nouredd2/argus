@@ -110,7 +110,7 @@ static int __init pmon_init(void)
 	/* now try to allocate the memory space needed using slab allocator
 	*/
 	pmon_cache = kmem_cache_create("pmon_cache", sizeof(struct pmon_entry),
-				       0, SLAB_POISON, NULL);
+				       0, 0, NULL);
 	if (!pmon_cache) {
 		pr_err("failed to create slab cache\n");
 		ret = -ENOMEM;
@@ -153,6 +153,8 @@ static void __exit pmon_cleanup(void)
 
 	flush_workqueue(pmon_wq);
 	destroy_workqueue(pmon_wq);
+
+  pr_info("module unloaded...\n");
 }
 
 module_init(pmon_init);
