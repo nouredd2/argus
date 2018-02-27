@@ -90,7 +90,7 @@ static int __init pmon_init(void)
 {
 	int ret=0;
 
-	pr_info("module installing...\n");
+	pr_info("module loading...\n");
 
 	/* setup the timer_list with the callback function */
 	setup_timer(&pmon_timer, pmon_timer_callback, 0);
@@ -110,7 +110,7 @@ static int __init pmon_init(void)
 	/* now try to allocate the memory space needed using slab allocator
 	*/
 	pmon_cache = kmem_cache_create("pmon_cache", sizeof(struct pmon_entry),
-				       0, 0, 0);
+				       0, SLAB_POISON, NULL);
 	if (!pmon_cache) {
 		pr_err("failed to create slab cache\n");
 		ret = -ENOMEM;
