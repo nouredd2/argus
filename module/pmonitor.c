@@ -8,6 +8,9 @@
 #include <linux/list.h>
 #include <linux/slab.h>
 #include <linux/workqueue.h>
+#include <linux/proc_fs.h>
+#include <linux/seq_file.h>
+#include <linux/string.h>
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("nour");
@@ -30,15 +33,6 @@ struct pmon_entry {
 	struct list_head llist;
 };
 
-/*
- * To decide when to flush to disk, we will flush on each page. Each entry is
- * formed of 12 bytes for the logging info and 8 bytes so in total it is 20
- * bytes. The page size is 4 KB so each page should hold about 204 entries. 
- * So I will flush every 200 entries to be conservative.
- */
-#define FLUSH_THRESH 200
-static unsigned int num_entries;
-
 #define LOG_INTERVAL 1000 /* default is 1000 msec */
 
 /* the timer that we will use throughout the lifetime of the module */
@@ -51,6 +45,8 @@ static struct workqueue_struct *pmon_wq;
 static struct work_struct pmon_work;
 
 static LIST_HEAD(head);
+
+static struct proc_dir_entry *proc_entry;
 
 static void pmon_timer_callback(unsigned long data)
 {
@@ -86,6 +82,54 @@ static void pmon_work_callback(struct work_struct *work)
 	list_add_tail(&(entry->llist), &head);
 	pr_info("work completed...\n");
 }
+
+static void *pmon_start(struct seq_file *s, loff_t *pos)
+{
+	/* should acquire locks here to avoid bad things from happening */
+	return seq_list_start(&head, *pos);
+}
+
+static void *pmon_next(struct seq_file *s, void *v, loff_t *pos)
+{
+	return seq_list_next(v, &head, pos);
+}
+
+static void pmon_stop(struct seq_file *s, void *v)
+{
+	/* should release locks when we get here! */
+}
+
+static int pmon_show(struct seq_file *s, void *v)
+{
+	struct pmon_entry *entry = list_entry((struct list_head *)v,
+			   struct pmon_entry, llist);
+
+	seq_printf(s, "%u;%u;%u\n",
+		   entry->ts,
+		   entry->listen_q_size,
+		   entry->accept_q_size);
+	return 0;
+}
+
+static const struct seq_operations pmon_seq_ops = {
+	.start = pmon_start,
+	.next  = pmon_next,
+	.stop  = pmon_stop,
+	.show  = pmon_show,
+};
+
+static int pmon_open(struct inode *inode, struct file *file)
+{
+	return seq_open(file, &pmon_seq_ops);
+}
+
+static const struct file_operations pmon_file_ops = {
+	.owner	 = THIS_MODULE,
+	.open	 = pmon_open,
+	.read	 = seq_read,
+	.llseek  = seq_lseek,
+	.release = seq_release,
+};
 
 static int __init pmon_init(void)
 {
@@ -130,11 +174,19 @@ static int __init pmon_init(void)
 	 */
 	INIT_WORK(&pmon_work, pmon_work_callback);
 
-	num_entries = 0;
+	proc_entry = proc_create("pmonitor", 0, NULL, &pmon_file_ops);
+	if (!proc_entry) {
+		pr_err("failed to create procfs entry...\n");
+		ret = -ENOMEM;
+		goto exit_on_workq;
+	}
 
 	pr_info("module_loaded...\n");
 	return 0;
 
+exit_on_workq:
+	flush_workqueue(pmon_wq);
+	destroy_workqueue(pmon_wq);
 exit_on_cache:
 	kmem_cache_destroy(pmon_cache);
 exit_on_timer:
@@ -155,7 +207,7 @@ static void __exit pmon_cleanup(void)
 	flush_workqueue(pmon_wq);
 	destroy_workqueue(pmon_wq);
 
-  pr_info("module unloaded...\n");
+	pr_info("module unloaded...\n");
 }
 
 module_init(pmon_init);
