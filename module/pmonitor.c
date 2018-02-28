@@ -46,6 +46,8 @@ static struct work_struct pmon_work;
 
 static LIST_HEAD(head);
 
+static DEFINE_SPINLOCK(pmon_lock);
+
 static struct proc_dir_entry *proc_entry;
 
 static void pmon_timer_callback(unsigned long data)
@@ -79,13 +81,16 @@ static void pmon_work_callback(struct work_struct *work)
 	entry->listen_q_size = 0;
 	entry->accept_q_size = 0;
 
+	spin_lock_bh(&pmon_lock);
 	list_add_tail(&(entry->llist), &head);
+	spin_unlock_bh(&pmon_lock);
 	pr_info("work completed...\n");
 }
 
 static void *pmon_start(struct seq_file *s, loff_t *pos)
 {
 	/* should acquire locks here to avoid bad things from happening */
+	spin_lock_bh(&pmon_lock);
 	return seq_list_start(&head, *pos);
 }
 
@@ -97,6 +102,7 @@ static void *pmon_next(struct seq_file *s, void *v, loff_t *pos)
 static void pmon_stop(struct seq_file *s, void *v)
 {
 	/* should release locks when we get here! */
+	spin_unlock_bh(&pmon_lock);
 }
 
 static int pmon_show(struct seq_file *s, void *v)
@@ -197,15 +203,25 @@ exit_on_timer:
 
 static void __exit pmon_cleanup(void)
 {
+	struct pmon_entry *next, *temp;
+
 	/* for us there's no need to check if the timer was active or
 	 * inactive, it doesn't really matter as we are exiting anyway
 	 */
 	del_timer(&pmon_timer);
 
-	kmem_cache_destroy(pmon_cache);
 
 	flush_workqueue(pmon_wq);
 	destroy_workqueue(pmon_wq);
+
+	/* must remove everything from the list and free up the memory
+	 */
+	list_for_each_entry_safe(next, temp, &head, llist) {
+		list_del(&(next->llist));
+		kmem_cache_free(pmon_cache, next);
+	}
+
+	kmem_cache_destroy(pmon_cache);
 
 	pr_info("module unloaded...\n");
 }
