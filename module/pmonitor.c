@@ -11,6 +11,7 @@
 #include <linux/proc_fs.h>
 #include <linux/seq_file.h>
 #include <linux/string.h>
+#include <linux/uaccess.h>
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("nour");
@@ -129,10 +130,54 @@ static int pmon_open(struct inode *inode, struct file *file)
 	return seq_open(file, &pmon_seq_ops);
 }
 
+static ssize_t pmon_write(struct file *s, const char __user *buffer,
+		      unsigned long count, loff_t *data)
+{
+	char *buff;
+	int ret;
+
+	buff = (char *)kmalloc(count+1, GFP_KERNEL);
+	if (IS_ERR(buff)) {
+		pr_err("out of memory, could not create buffer space\n");
+		return -ENOMEM;
+	}
+
+	if (copy_from_user(buff, buffer, count)) {
+		goto exit_on_error;
+	}
+	buff[count] = '\0';
+
+	if (strcmp(buff, "1") == 0) {
+		/* enable the module, first check if it is already
+		 * active before reactivation */
+		if (timer_pending(&pmon_timer) == 1) {
+			pr_info("module already active");
+		} else {
+			ret = mod_timer(&pmon_timer,
+					jiffies
+					+ msecs_to_jiffies(LOG_INTERVAL));
+		}
+	} else if (strcmp(buff, "0") == 0) {
+		/* disable the module */
+		flush_workqueue(pmon_wq);
+		del_timer(&pmon_timer);
+	} else {
+		goto exit_on_error;
+	}
+
+	kfree(buff);
+	return 0;
+
+exit_on_error:
+	kfree(buff);
+	return -EFAULT;
+}
+
 static const struct file_operations pmon_file_ops = {
 	.owner	 = THIS_MODULE,
 	.open	 = pmon_open,
 	.read	 = seq_read,
+	.write   = pmon_write,
 	.llseek  = seq_lseek,
 	.release = seq_release,
 };
