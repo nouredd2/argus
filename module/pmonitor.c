@@ -222,6 +222,7 @@ static void __exit pmon_cleanup(void)
 	}
 
 	kmem_cache_destroy(pmon_cache);
+	remove_proc_entry(proc_entry, NULL);
 
 	pr_info("module unloaded...\n");
 }
