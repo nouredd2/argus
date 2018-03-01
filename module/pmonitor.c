@@ -143,6 +143,7 @@ static ssize_t pmon_write(struct file *s, const char __user *buffer,
 	}
 
 	if (copy_from_user(buff, buffer, count)) {
+		pr_err("could not copy message from user space\n");
 		goto exit_on_error;
 	}
 	buff[count] = '\0';
