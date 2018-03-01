@@ -146,6 +146,9 @@ static ssize_t pmon_write(struct file *s, const char __user *buffer,
 		pr_err("could not copy message from user space\n");
 		goto exit_on_error;
 	}
+	if (buff[count-1] == '\n') {/*remove trailing endline from echo*/
+		buff[count-1] = '\0';
+	}
 	buff[count] = '\0';
 
 	if (strcmp(buff, "1") == 0) {
@@ -157,17 +160,20 @@ static ssize_t pmon_write(struct file *s, const char __user *buffer,
 			ret = mod_timer(&pmon_timer,
 					jiffies
 					+ msecs_to_jiffies(LOG_INTERVAL));
+			pr_info("module activated");
 		}
 	} else if (strcmp(buff, "0") == 0) {
 		/* disable the module */
 		flush_workqueue(pmon_wq);
 		del_timer(&pmon_timer);
+		pr_info("module deactivated");
 	} else {
+		pr_err("unrecognized command!");
 		goto exit_on_error;
 	}
 
 	kfree(buff);
-	return 0;
+	return count;
 
 exit_on_error:
 	kfree(buff);
