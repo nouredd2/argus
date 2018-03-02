@@ -1,6 +1,8 @@
 #define pr_fmt(fmt) "pMonitor: " fmt
 
 #include <linux/kernel.h>
+#include <linux/net.h>
+#include <linux/file.h>
 #include <linux/timer.h>
 #include <linux/module.h>
 #include <linux/printk.h>
@@ -12,6 +14,7 @@
 #include <linux/seq_file.h>
 #include <linux/string.h>
 #include <linux/uaccess.h>
+#include <net/inet_connection_sock.h>
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("nour");
@@ -51,6 +54,9 @@ static DEFINE_SPINLOCK(pmon_lock);
 
 static struct proc_dir_entry *proc_entry;
 
+static int sock_fd;
+static struct socket *sock;
+
 static void pmon_timer_callback(unsigned long data)
 {
 	/*
@@ -72,6 +78,8 @@ static void pmon_work_callback(struct work_struct *work)
 {
 	struct pmon_entry *entry;
 
+	BUG_ON(sock == NULL);
+
 	entry = (struct pmon_entry *) kmem_cache_alloc(pmon_cache, GFP_KERNEL);
 	if (IS_ERR(entry)) {
 		pr_err ("failed to allocate cache space for a new entry\n");
@@ -79,8 +87,8 @@ static void pmon_work_callback(struct work_struct *work)
 	}
 
 	entry->ts = jiffies_to_msecs(jiffies);
-	entry->listen_q_size = 0;
-	entry->accept_q_size = 0;
+	entry->listen_q_size = inet_csk_reqsk_queue_len(sock->sk);
+	entry->accept_q_size = sock->sk->sk_ack_backlog;
 
 	spin_lock_bh(&pmon_lock);
 	list_add_tail(&(entry->llist), &head);
@@ -144,6 +152,7 @@ static ssize_t pmon_write(struct file *s, const char __user *buffer,
 
 	if (copy_from_user(buff, buffer, count)) {
 		pr_err("could not copy message from user space\n");
+		ret = -EFAULT;
 		goto exit_on_error;
 	}
 	if (buff[count-1] == '\n') {/*remove trailing endline from echo*/
@@ -156,6 +165,8 @@ static ssize_t pmon_write(struct file *s, const char __user *buffer,
 		 * active before reactivation */
 		if (timer_pending(&pmon_timer) == 1) {
 			pr_info("module already active");
+		} else if (sock == NULL) {
+			pr_err("cannot activate module, no socket defined");
 		} else {
 			ret = mod_timer(&pmon_timer,
 					jiffies
@@ -167,17 +178,44 @@ static ssize_t pmon_write(struct file *s, const char __user *buffer,
 		flush_workqueue(pmon_wq);
 		del_timer(&pmon_timer);
 		pr_info("module deactivated");
+	} else if (buff[0] == 'F') {
+		/* get the socket file descriptor */
+		if (sock_fd != 0)
+			goto exit;
+
+		ret = kstrtoint(&(buff[2]), 10, &sock_fd);
+		if (ret != 0) {
+			pr_err("invalid socket descriptor input");
+			if (ret == -ERANGE)
+				pr_err("range error");
+			else
+				pr_err("format error");
+			sock_fd = 0;
+			goto exit_on_error;
+		}
+
+		pr_info ("got the socket fd=%d", sock_fd);
+		sock = sockfd_lookup(sock_fd, &ret);
+		if (!sock) {
+			pr_err("could not find socket, message is %d",
+			       ret);
+			sock_fd = 0;
+			goto exit_on_error;
+		}
+		pr_info("found the socket with fd=%d", sock_fd);
 	} else {
 		pr_err("unrecognized command!");
+		ret = -EFAULT;
 		goto exit_on_error;
 	}
 
+exit:
 	kfree(buff);
 	return count;
 
 exit_on_error:
 	kfree(buff);
-	return -EFAULT;
+	return ret;
 }
 
 static const struct file_operations pmon_file_ops = {
@@ -197,18 +235,6 @@ static int __init pmon_init(void)
 
 	/* setup the timer_list with the callback function */
 	setup_timer(&pmon_timer, pmon_timer_callback, 0);
-
-	ret = mod_timer(&pmon_timer,
-			jiffies + msecs_to_jiffies(LOG_INTERVAL));
-
-	/* we should not here unless the timer has expired and
-	 * is no longer active. so ret should be zero
-	 */
-	if (ret) {
-		pr_err("mod_timer returned that the timer is still active!\n");
-		ret = -ETIME; /* returning timer expired here, but means something different */
-		goto exit_on_timer;
-	}
 
 	/* now try to allocate the memory space needed using slab allocator
 	*/
@@ -238,6 +264,9 @@ static int __init pmon_init(void)
 		ret = -ENOMEM;
 		goto exit_on_workq;
 	}
+
+	sock_fd = 0;
+	sock = NULL;
 
 	pr_info("module_loaded...\n");
 	return 0;
@@ -275,6 +304,11 @@ static void __exit pmon_cleanup(void)
 
 	kmem_cache_destroy(pmon_cache);
 	remove_proc_entry("pmonitor", NULL);
+
+	/* fix reference counts for the file, better not to create a mess here
+	 */
+	if (sock)
+		sockfd_put(sock);
 
 	pr_info("module unloaded...\n");
 }
