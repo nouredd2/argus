@@ -165,6 +165,8 @@ static ssize_t pmon_write(struct file *s, const char __user *buffer,
 		 * active before reactivation */
 		if (timer_pending(&pmon_timer) == 1) {
 			pr_info("module already active");
+		} else if (sock == NULL) {
+			pr_err("cannot activate module, no socket defined");
 		} else {
 			ret = mod_timer(&pmon_timer,
 					jiffies
@@ -197,6 +199,7 @@ static ssize_t pmon_write(struct file *s, const char __user *buffer,
 			pr_err("could not find socket");
 			goto exit_on_error;
 		}
+		pr_info("found the socket with fd=%lu", sock_fd);
 	} else {
 		pr_err("unrecognized command!");
 		ret = -EFAULT;
