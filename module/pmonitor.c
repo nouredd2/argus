@@ -1,6 +1,8 @@
 #define pr_fmt(fmt) "pMonitor: " fmt
 
 #include <linux/kernel.h>
+#include <linux/fs.h>
+#include <linux/fdtable.h>
 #include <linux/net.h>
 #include <linux/file.h>
 #include <linux/timer.h>
@@ -59,6 +61,8 @@ static int sock_fd;
 static int pid;
 static struct socket *sock;
 static struct task_struct *task;
+static struct fdtable *files_table;
+static struct files_struct *files;
 
 static void pmon_timer_callback(unsigned long data)
 {
@@ -145,7 +149,7 @@ static ssize_t pmon_write(struct file *s, const char __user *buffer,
 		      unsigned long count, loff_t *data)
 {
 	char *buff;
-	int ret;
+	int ret,i;
 
 	buff = (char *)kmalloc(count+1, GFP_KERNEL);
 	if (IS_ERR(buff)) {
@@ -206,7 +210,7 @@ static ssize_t pmon_write(struct file *s, const char __user *buffer,
 			goto exit_on_error;
 		}
 		pr_info("found the socket with fd=%d", sock_fd);
-	} else if (buff[1] == 'P') {
+	} else if (buff[0] == 'P') {
 		/* lookup task by its pid provided */
 		if (pid != -1)
 			goto exit;
@@ -226,6 +230,27 @@ static ssize_t pmon_write(struct file *s, const char __user *buffer,
 		}
 
 		pr_info("found task struct with pid=%d", pid);
+
+		files = get_files_struct(task);
+		if (!files) {
+			pr_err("could not get files struct");
+			pid = -1;
+			task = NULL;
+			goto exit_on_error;
+		}
+
+		files_table = files_fdtable(files);
+		while(files_table->fd[i] != NULL &&
+		      i < files_table->max_fds) {
+			if (i==0 || i==1)
+				continue;
+
+			sock = sock_from_file(files_table->fd[i], &ret);
+			if (sock) {
+				pr_info("found socket in files of the process");
+			}
+			i++;
+		}
 	} else {
 		pr_err("unrecognized command!");
 		ret = -EFAULT;
@@ -290,6 +315,8 @@ static int __init pmon_init(void)
 
 	sock_fd = 0;
 	sock = NULL;
+	pid = -1;
+	task = NULL;
 
 	pr_info("module_loaded...\n");
 	return 0;
