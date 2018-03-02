@@ -190,6 +190,7 @@ static ssize_t pmon_write(struct file *s, const char __user *buffer,
 				pr_err("range error");
 			else
 				pr_err("format error");
+			sock_fd = 0;
 			goto exit_on_error;
 		}
 
@@ -197,6 +198,7 @@ static ssize_t pmon_write(struct file *s, const char __user *buffer,
 		sock = sockfd_lookup(sock_fd, &ret);
 		if (!sock) {
 			pr_err("could not find socket");
+			sock_fd = 0;
 			goto exit_on_error;
 		}
 		pr_info("found the socket with fd=%lu", sock_fd);
