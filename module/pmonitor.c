@@ -1,6 +1,8 @@
 #define pr_fmt(fmt) "pMonitor: " fmt
 
 #include <linux/kernel.h>
+#include <linux/net.h>
+#include <linux/file.h>
 #include <linux/timer.h>
 #include <linux/module.h>
 #include <linux/printk.h>
@@ -50,6 +52,9 @@ static LIST_HEAD(head);
 static DEFINE_SPINLOCK(pmon_lock);
 
 static struct proc_dir_entry *proc_entry;
+
+static unsigned long sock_fd;
+static struct socket *sock;
 
 static void pmon_timer_callback(unsigned long data)
 {
@@ -144,6 +149,7 @@ static ssize_t pmon_write(struct file *s, const char __user *buffer,
 
 	if (copy_from_user(buff, buffer, count)) {
 		pr_err("could not copy message from user space\n");
+		ret = -EFAULT;
 		goto exit_on_error;
 	}
 	if (buff[count-1] == '\n') {/*remove trailing endline from echo*/
@@ -167,17 +173,36 @@ static ssize_t pmon_write(struct file *s, const char __user *buffer,
 		flush_workqueue(pmon_wq);
 		del_timer(&pmon_timer);
 		pr_info("module deactivated");
+	} else if (buff[0] == 'F') {
+		/* get the socket file descriptor */
+		if (sock_fd != 0)
+			goto exit;
+
+		ret = kstrtol(&(buff[1]), 10, &sock_fd);
+		if (ret != 0) {
+			pr_err("invalid socket descriptor input");
+			goto exit_on_error;
+		}
+
+		pr_info ("got the socket fd %lu", sock_fd);
+		sock = sockfd_lookup(sock_fd, &ret);
+		if (!sock) {
+			pr_err("could not find socket");
+			goto exit_on_error;
+		}
 	} else {
 		pr_err("unrecognized command!");
+		ret = -EFAULT;
 		goto exit_on_error;
 	}
 
+exit:
 	kfree(buff);
 	return count;
 
 exit_on_error:
 	kfree(buff);
-	return -EFAULT;
+	return ret;
 }
 
 static const struct file_operations pmon_file_ops = {
@@ -239,6 +264,9 @@ static int __init pmon_init(void)
 		goto exit_on_workq;
 	}
 
+	sock_fd = 0;
+	sock = 0;
+
 	pr_info("module_loaded...\n");
 	return 0;
 
@@ -275,6 +303,11 @@ static void __exit pmon_cleanup(void)
 
 	kmem_cache_destroy(pmon_cache);
 	remove_proc_entry("pmonitor", NULL);
+
+	/* fix reference counts for the file, better not to create a mess here
+	 */
+	if (sock)
+		sockfd_put(sock);
 
 	pr_info("module unloaded...\n");
 }
