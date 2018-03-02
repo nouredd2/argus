@@ -54,7 +54,7 @@ static DEFINE_SPINLOCK(pmon_lock);
 
 static struct proc_dir_entry *proc_entry;
 
-static unsigned long sock_fd;
+static int sock_fd;
 static struct socket *sock;
 
 static void pmon_timer_callback(unsigned long data)
@@ -183,7 +183,7 @@ static ssize_t pmon_write(struct file *s, const char __user *buffer,
 		if (sock_fd != 0)
 			goto exit;
 
-		ret = kstrtol(&(buff[2]), 10, &sock_fd);
+		ret = kstrtoint(&(buff[2]), 10, &sock_fd);
 		if (ret != 0) {
 			pr_err("invalid socket descriptor input");
 			if (ret == -ERANGE)
@@ -194,7 +194,7 @@ static ssize_t pmon_write(struct file *s, const char __user *buffer,
 			goto exit_on_error;
 		}
 
-		pr_info ("got the socket fd %lu", sock_fd);
+		pr_info ("got the socket fd=%d", sock_fd);
 		sock = sockfd_lookup(sock_fd, &ret);
 		if (!sock) {
 			pr_err("could not find socket, message is %d",
@@ -202,7 +202,7 @@ static ssize_t pmon_write(struct file *s, const char __user *buffer,
 			sock_fd = 0;
 			goto exit_on_error;
 		}
-		pr_info("found the socket with fd=%lu", sock_fd);
+		pr_info("found the socket with fd=%d", sock_fd);
 	} else {
 		pr_err("unrecognized command!");
 		ret = -EFAULT;
