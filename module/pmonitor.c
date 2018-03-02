@@ -218,7 +218,7 @@ static ssize_t pmon_write(struct file *s, const char __user *buffer,
 		}
 
 		pr_info("got process id to look for pid=%d", pid);
-		task = find_task_by_vpid(pid);
+		task = pid_task(find_vpid(pid), PIDTYPE_PID);
 		if (!task) {
 			pr_err("could not find the task with pid=%d", pid);
 			pid = -1;
