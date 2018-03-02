@@ -14,6 +14,7 @@
 #include <linux/seq_file.h>
 #include <linux/string.h>
 #include <linux/uaccess.h>
+#include <linux/sched.h>
 #include <net/inet_connection_sock.h>
 
 MODULE_LICENSE("GPL");
@@ -55,7 +56,9 @@ static DEFINE_SPINLOCK(pmon_lock);
 static struct proc_dir_entry *proc_entry;
 
 static int sock_fd;
+static int pid;
 static struct socket *sock;
+static struct task_struct *task;
 
 static void pmon_timer_callback(unsigned long data)
 {
@@ -194,7 +197,7 @@ static ssize_t pmon_write(struct file *s, const char __user *buffer,
 			goto exit_on_error;
 		}
 
-		pr_info ("got the socket fd=%d", sock_fd);
+		pr_info("got the socket fd=%d", sock_fd);
 		sock = sockfd_lookup(sock_fd, &ret);
 		if (!sock) {
 			pr_err("could not find socket, message is %d",
@@ -203,6 +206,26 @@ static ssize_t pmon_write(struct file *s, const char __user *buffer,
 			goto exit_on_error;
 		}
 		pr_info("found the socket with fd=%d", sock_fd);
+	} else if (buff[1] == 'P') {
+		/* lookup task by its pid provided */
+		if (pid != -1)
+			goto exit;
+
+		ret = kstrtoint(&(buff[2]), 10, &pid);
+		if (ret != 0) {
+			pid = -1;
+			goto exit_on_error;
+		}
+
+		pr_info("got process id to look for pid=%d", pid);
+		task = pid_task(find_vpid(pid), PIDTYPE_PID);
+		if (!task) {
+			pr_err("could not find the task with pid=%d", pid);
+			pid = -1;
+			goto exit_on_error;
+		}
+
+		pr_info("found task struct with pid=%d", pid);
 	} else {
 		pr_err("unrecognized command!");
 		ret = -EFAULT;
