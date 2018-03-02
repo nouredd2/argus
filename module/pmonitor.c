@@ -241,7 +241,12 @@ static ssize_t pmon_write(struct file *s, const char __user *buffer,
 			goto exit_on_error;
 		}
 
+		pr_info("starting iteration through fdtable");
 		files_table = files_fdtable(files);
+		if (!files_table) {
+			pr_err("could not get the filetable");
+			goto exit_on_error;
+		}
 		while(files_table->fd[i] != NULL &&
 		      i < files_table->max_fds) {
 			if (i==0 || i==1)
