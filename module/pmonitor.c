@@ -247,11 +247,9 @@ static ssize_t pmon_write(struct file *s, const char __user *buffer,
 			pr_err("could not get the filetable");
 			goto exit_on_error;
 		}
-		while(files_table->fd[i] != NULL &&
-		      i < files_table->max_fds) {
-			if (i==0 || i==1)
-				continue;
-
+		while(i < files_table->max_fds &&
+		      files_tables->fd[i]) {
+			pr_info("in interation with index %d", i);
 			sock = sock_from_file(files_table->fd[i], &ret);
 			if (sock) {
 				pr_info("found socket in files of the process");
