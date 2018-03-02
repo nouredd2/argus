@@ -13,15 +13,8 @@ class Argus(Daemon):
         super(Argus, self).__init__(pidfile, stdin, stdout, stderr)
         self.config_file = config_file
         self.configured = False
-        self.metrics_names = set(['busy_workers',
-                            'bytes_per_request',
-                            'bytes_per_second',
-                            'cpu_load',
-                            'idle_workers',
-                            'requests_per_second',
-                            'total_accesses',
-                            'total_traffic',
-                            'uptime'])
+        self.metrics_names = set(['cpu_percent', 'active_memory',
+                                'packets_sent', 'packets_recv'])
         self.sampling_rate = 1.0 / 2
         self.flush_interval = 5.0
         self.manager = None
@@ -29,6 +22,7 @@ class Argus(Daemon):
         self.write_header = True
         self.cwd = os.getcwd()
         self.output_file = self.cwd + '/argus.out'
+        self.pretty = True
 
 
     def flush_data(self, d):
@@ -37,22 +31,18 @@ class Argus(Daemon):
         """
         try:
             with open(self.output_file, 'a+') as f:
-                if self.write_header:
-                    f.write ("Timestamp ")
-                    for title in self.metrics_names:
-                        f.write(title + " ")
-                    f.write("\n")
+                if self.write_header and os.stat(self.output_file).st_size == 0:
+                    f.write("%17s" % "Timestamp")
+                    f.write(" ".join(["%13s" % x for x in self.metrics_names]))
                     self.write_header = False
 
                 for timestamp,metrics in d.iteritems():
-                    f.write("%lf " % timestamp)
+                    f.write("\n%lf" % timestamp)
                     if isinstance(metrics, dict):
                         for key,val in metrics.iteritems():
                             f.write(val)
                     elif isinstance(metrics, list):
-                        for val in metrics:
-                            f.write(str(val))
-                    f.write("\n")
+                        f.write(" ".join(["%13s" % x for x in metrics]))
 
                 self.last_flush = time.time()
         except IOError:
@@ -75,6 +65,8 @@ class Argus(Daemon):
             self.sampling_rate = 1.0 / int(v)
         elif o == 'flush_interval':
             self.flush_interval = float(v)
+        elif o == 'pretty':
+            self.pretty = True if v == "True" else False
         else:
             sys.stderr.write("unrecognized configuration option %s\n" % o)
             self.stop()
@@ -117,10 +109,10 @@ class Argus(Daemon):
         while True:
             # REPLACE -p 2948 WITH PID OF DAEMON
             # subprocess.call(["top", "-n1"], stdout=file(self.output_file, 'w+'))
-
             # metrics = {proc.name()+'a':proc.name() for proc in psutil.process_iter()}
-            # print(psutil.virtual_memory())
-            metrics = [psutil.cpu_percent(), psutil.virtual_memory().active]
+
+            net_stats = psutil.net_io_counters()
+            metrics = [psutil.cpu_percent(), psutil.virtual_memory().active, net_stats.packets_sent, net_stats.packets_recv]
 
             timestamp = time.time()
             data[timestamp] = metrics
