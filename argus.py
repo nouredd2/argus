@@ -31,18 +31,20 @@ class Argus(Daemon):
         """
         try:
             with open(self.output_file, 'a+') as f:
+                form_str = "%13s" if self.pretty else "%s"
                 if self.write_header and os.stat(self.output_file).st_size == 0:
-                    f.write("%17s" % "Timestamp")
-                    f.write(" ".join(["%13s" % x for x in self.metrics_names]))
+                    f.write("%17s" % "Timestamp" if self.pretty else "Timestamp ")
+                    f.write(" ".join([form_str % x for x in self.metrics_names]))
                     self.write_header = False
 
                 for timestamp,metrics in d.iteritems():
                     f.write("\n%lf" % timestamp)
+                    if not self.pretty: f.write(" ")
                     if isinstance(metrics, dict):
                         for key,val in metrics.iteritems():
                             f.write(val)
                     elif isinstance(metrics, list):
-                        f.write(" ".join(["%13s" % x for x in metrics]))
+                        f.write(" ".join([form_str % x for x in metrics]))
 
                 self.last_flush = time.time()
         except IOError:
