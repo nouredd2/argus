@@ -181,9 +181,13 @@ static ssize_t pmon_write(struct file *s, const char __user *buffer,
 		if (sock_fd != 0)
 			goto exit;
 
-		ret = kstrtol(&(buff[1]), 10, &sock_fd);
+		ret = kstrtol(&(buff[2]), 10, &sock_fd);
 		if (ret != 0) {
 			pr_err("invalid socket descriptor input");
+			if (ret == -ERANGE)
+				pr_err("range error");
+			else
+				pr_err("format error");
 			goto exit_on_error;
 		}
 
