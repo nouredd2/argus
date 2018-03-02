@@ -22,7 +22,7 @@ class Argus(Daemon):
                             'total_accesses',
                             'total_traffic',
                             'uptime'])
-        self.sampling_rate = 2
+        self.sampling_rate = 1.0 / 2
         self.flush_interval = 5.0
         self.manager = None
         self.last_flush = 0.0
@@ -36,30 +36,28 @@ class Argus(Daemon):
         Flush the collected data to an output file to be saved
         """
         try:
-            f = open(self.output_file, 'a+')
+            with open(self.output_file, 'a+') as f:
+                if self.write_header:
+                    f.write ("Timestamp ")
+                    for title in self.metrics_names:
+                        f.write(title + " ")
+                    f.write("\n")
+                    self.write_header = False
+
+                for timestamp,metrics in d.iteritems():
+                    f.write("%lf " % timestamp)
+                    if isinstance(metrics, dict):
+                        for key,val in metrics.iteritems():
+                            f.write(val)
+                    elif isinstance(metrics, list):
+                        for val in metrics:
+                            f.write(str(val))
+                    f.write("\n")
+
+                self.last_flush = time.time()
         except IOError:
             sys.stderr.write("Error opening output file %s\n" % self.output_file)
             self.stop()
-
-        if self.write_header:
-            f.write ("Timestamp ")
-            for title in self.metrics_names:
-                f.write(title + " ")
-            f.write("\n")
-            self.write_header = False
-
-        for ts,metrics in d.iteritems():
-            f.write("%lf " % ts)
-            if isinstance(metrics, dict):
-                for key,val in metrics.iteritems():
-                    f.write(val)
-            elif isinstance(metrics, list):
-                for val in metrics:
-                    f.write(val)
-            f.write("\n")
-
-        f.close()
-        self.last_flush = time.time()
 
 
     def apply_config_option(self, o, v):
@@ -74,7 +72,7 @@ class Argus(Daemon):
             else:
                 self.output_file = self.cwd + '/' + v
         elif o == 'sampling_rate':
-            self.sampling_rate = int(v)
+            self.sampling_rate = 1.0 / int(v)
         elif o == 'flush_interval':
             self.flush_interval = float(v)
         else:
@@ -89,27 +87,25 @@ class Argus(Daemon):
         """
         try:
             with open(config_file, 'r') as f:
-                # config_opts = f.readlines()
                 opts = [line.rstrip('\n') for line in f]
         except IOError:
             sys.stderr.write("Cannot read config file %s, make sure it exists.\n" % config_file)
             # Not sure this needs to be here, since the daemon hasn't even started yet
             self.stop()
 
-        # opts = [x.strip() for x in config_opts]
-
         for line in opts:
-            # skip over comments
-            if len(line) <= 1 or line[0] == '#':
-                continue
+            # Skip comments and empty lines
+            if len(line) <= 1 or line[0] == '#': continue
 
-            values = line.split('=')
-
-            option, value = values[0].strip(), values[1].strip()
-
+            option, value = [x.strip() for x in line.split('=')]
             self.apply_config_option(option, value)
 
+        # Don't allow writing data more often than we capture it
+        if self.sampling_rate > self.flush_interval:
+            self.flush_interval = self.sampling_rate
+
         self.configured = True
+
 
     # override the run method
     def run(self):
@@ -124,14 +120,12 @@ class Argus(Daemon):
 
             # metrics = {proc.name()+'a':proc.name() for proc in psutil.process_iter()}
             # print(psutil.virtual_memory())
-            metrics = [str(x) for x in [psutil.cpu_percent(), str(psutil.virtual_memory())]]
+            metrics = [psutil.cpu_percent(), psutil.virtual_memory().active]
 
-            # we got the dictionary, now save everything
             timestamp = time.time()
             data[timestamp] = metrics
 
-            time.sleep(1.0 / self.sampling_rate)
-
+            time.sleep(self.sampling_rate)
 
             # check if should be flushing to file
             if self.last_flush == 0.0:
@@ -145,10 +139,12 @@ class Argus(Daemon):
         self.configure()
         super(Argus, self).start()
 
+
     def stop(self):
         super(Argus, self).stop()
         # Remove this later if it causes problems
         sys.exit(2)
+
 
 if __name__ == "__main__":
     daemon = Argus('/tmp/daemon-example.pid', stdout='/tmp/argus.out', stderr='/tmp/argus.err')
