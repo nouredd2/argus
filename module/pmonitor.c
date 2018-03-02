@@ -197,7 +197,8 @@ static ssize_t pmon_write(struct file *s, const char __user *buffer,
 		pr_info ("got the socket fd %lu", sock_fd);
 		sock = sockfd_lookup(sock_fd, &ret);
 		if (!sock) {
-			pr_err("could not find socket");
+			pr_err("could not find socket, message is %d",
+			       ret);
 			sock_fd = 0;
 			goto exit_on_error;
 		}
