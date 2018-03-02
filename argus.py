@@ -2,7 +2,9 @@
 
 import sys,time,os
 from daemon import Daemon
-from apache_manager import ApacheManager
+# from apache_manager import ApacheManager
+import subprocess
+import psutil
 
 
 class Argus(Daemon):
@@ -21,7 +23,7 @@ class Argus(Daemon):
                             'total_traffic',
                             'uptime'])
         self.sampling_rate = 2
-        self.flush_interval = 10.0
+        self.flush_interval = 5.0
         self.manager = None
         self.last_flush = 0.0
         self.write_header = True
@@ -36,11 +38,7 @@ class Argus(Daemon):
         try:
             f = open(self.output_file, 'a+')
         except IOError:
-            sys.stderr.write("Error opening output file %s\n" %
-                             self.output_file)
-            f = None
-
-        if f is None:
+            sys.stderr.write("Error opening output file %s\n" % self.output_file)
             self.stop()
 
         if self.write_header:
@@ -52,8 +50,12 @@ class Argus(Daemon):
 
         for ts,metrics in d.iteritems():
             f.write("%lf " % ts)
-            for key,val in metrics.iteritems():
-                f.write("%lf " % val)
+            if isinstance(metrics, dict):
+                for key,val in metrics.iteritems():
+                    f.write(val)
+            elif isinstance(metrics, list):
+                for val in metrics:
+                    f.write(val)
             f.write("\n")
 
         f.close()
@@ -83,42 +85,31 @@ class Argus(Daemon):
     def configure(self, config_file='argus.conf'):
         """
         Read the configuration for the argus daemon from the config file.
-
         Defaults to reading argus.conf in the current directory
         """
         try:
-            f = file(config_file, 'r')
-            config_opts = f.readlines()
-            f.close()
+            with open(config_file, 'r') as f:
+                # config_opts = f.readlines()
+                opts = [line.rstrip('\n') for line in f]
         except IOError:
-            config_opts = None
-
-        if config_opts is None:
-            sys.stderr.write("Cannot read config file %s\n" % config_file)
+            sys.stderr.write("Cannot read config file %s, make sure it exists.\n" % config_file)
+            # Not sure this needs to be here, since the daemon hasn't even started yet
             self.stop()
 
-        opts = [x.strip() for x in config_opts]
+        # opts = [x.strip() for x in config_opts]
 
         for line in opts:
             # skip over comments
-            if len(line) <= 1:
+            if len(line) <= 1 or line[0] == '#':
                 continue
-            if line[0] == '#':
-                continue
+
             values = line.split('=')
 
-            option = values[0]
-            value = values[1]
+            option, value = values[0].strip(), values[1].strip()
 
             self.apply_config_option(option, value)
 
         self.configured = True
-
-
-    def start(self):
-        self.configure()
-
-        super(Argus, self).start()
 
     # override the run method
     def run(self):
@@ -126,32 +117,38 @@ class Argus(Daemon):
             sys.stderr.write("Argus monitoring agent is not configured.\n")
             self.stop()
 
-        self.manager = ApacheManager()
         data = dict()
         while True:
-            while True:
-                try:
-                    self.manager.refresh()
-                    break
-                except:
-                    sys.stderr.write("mod_status is unreachable, retrying...\n")
-                    time.sleep(0.5 / self.sampling_rate)
+            # REPLACE -p 2948 WITH PID OF DAEMON
+            # subprocess.call(["top", "-n1"], stdout=file(self.output_file, 'w+'))
 
-            metrics = self.manager.server_metrics
+            # metrics = {proc.name()+'a':proc.name() for proc in psutil.process_iter()}
+            # print(psutil.virtual_memory())
+            metrics = [str(x) for x in [psutil.cpu_percent(), str(psutil.virtual_memory())]]
 
             # we got the dictionary, now save everything
             timestamp = time.time()
             data[timestamp] = metrics
+
             time.sleep(1.0 / self.sampling_rate)
+
 
             # check if should be flushing to file
             if self.last_flush == 0.0:
                 self.last_flush = timestamp
-            else:
-                if (timestamp - self.last_flush) > self.flush_interval:
-                    self.flush_data(data)
-                    data.clear()
+            elif (timestamp - self.last_flush) > self.flush_interval:
+                self.flush_data(data)
+                data.clear()
 
+
+    def start(self):
+        self.configure()
+        super(Argus, self).start()
+
+    def stop(self):
+        super(Argus, self).stop()
+        # Remove this later if it causes problems
+        sys.exit(2)
 
 if __name__ == "__main__":
     daemon = Argus('/tmp/daemon-example.pid', stdout='/tmp/argus.out', stderr='/tmp/argus.err')
