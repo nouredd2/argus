@@ -14,6 +14,7 @@
 #include <linux/seq_file.h>
 #include <linux/string.h>
 #include <linux/uaccess.h>
+#include <net/inet_connection_sock.h>
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("nour");
@@ -77,6 +78,8 @@ static void pmon_work_callback(struct work_struct *work)
 {
 	struct pmon_entry *entry;
 
+	BUG_ON(sock == NULL);
+
 	entry = (struct pmon_entry *) kmem_cache_alloc(pmon_cache, GFP_KERNEL);
 	if (IS_ERR(entry)) {
 		pr_err ("failed to allocate cache space for a new entry\n");
@@ -84,8 +87,8 @@ static void pmon_work_callback(struct work_struct *work)
 	}
 
 	entry->ts = jiffies_to_msecs(jiffies);
-	entry->listen_q_size = 0;
-	entry->accept_q_size = 0;
+	entry->listen_q_size = inet_csk_reqsk_queue_len(sock->sk);
+	entry->accept_q_size = sock->sk->sk_ack_backlog;
 
 	spin_lock_bh(&pmon_lock);
 	list_add_tail(&(entry->llist), &head);
@@ -223,18 +226,6 @@ static int __init pmon_init(void)
 	/* setup the timer_list with the callback function */
 	setup_timer(&pmon_timer, pmon_timer_callback, 0);
 
-	ret = mod_timer(&pmon_timer,
-			jiffies + msecs_to_jiffies(LOG_INTERVAL));
-
-	/* we should not here unless the timer has expired and
-	 * is no longer active. so ret should be zero
-	 */
-	if (ret) {
-		pr_err("mod_timer returned that the timer is still active!\n");
-		ret = -ETIME; /* returning timer expired here, but means something different */
-		goto exit_on_timer;
-	}
-
 	/* now try to allocate the memory space needed using slab allocator
 	*/
 	pmon_cache = kmem_cache_create("pmon_cache", sizeof(struct pmon_entry),
@@ -265,7 +256,7 @@ static int __init pmon_init(void)
 	}
 
 	sock_fd = 0;
-	sock = 0;
+	sock = NULL;
 
 	pr_info("module_loaded...\n");
 	return 0;
