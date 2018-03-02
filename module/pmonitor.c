@@ -3,6 +3,7 @@
 #include <linux/kernel.h>
 #include <linux/fs.h>
 #include <linux/fdtable.h>
+#include <linux/fs_struct.h>
 #include <linux/net.h>
 #include <linux/file.h>
 #include <linux/timer.h>
@@ -231,7 +232,8 @@ static ssize_t pmon_write(struct file *s, const char __user *buffer,
 
 		pr_info("found task struct with pid=%d", pid);
 
-		files = get_files_struct(task);
+		/*files = get_files_struct(task);*/
+		files = task->files;
 		if (!files) {
 			pr_err("could not get files struct");
 			pid = -1;
