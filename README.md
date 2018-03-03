@@ -43,7 +43,7 @@ sudo insmod pmonitor.ko
 
 ## Using the kernel monitor
 
-After inerting it, the module will do nothing, it will be dormant. To active it,  you first have to provide
+After inerting it, the module will do nothing, it will be dormant. To activate it,  you first have to provide
 it with the process id (`pid`) of the Apache2 process running on the machine. The module will use that to
 detect the socket bound to port 80. Note that the module assumes that the http process is running on port 80.
 For what follows (with the exception of reading from `procfs`), you need to be root. To pass the `pid` to
@@ -54,7 +54,7 @@ echo "P 1234" > /proc/pmonitor
 ```
 and replace `1234` with the appropriate `pid`.
 
-The module now is ready to run, the active it use
+The module now is ready to run, the activate it use
 
 ```
 echo "1" > /proc/pmonitor
