@@ -29,6 +29,10 @@ sudo apt install -y build-essential linux-headers-$(uname -r)
 Before compiling the module, select the appropriate polling interval. To do so, edit the file `pmonitor.c`
 and change the value of the macro `LOG_INTERVAL` on line 44. This value is in milliseconds.
 
+```C
+#define LOG_INTERVAL 1000 /* for 1 second intervals */
+```
+
 To use the kernel module, you must first compile and install it. From the module's top directory use
 
 ```
