@@ -151,6 +151,7 @@ static ssize_t pmon_write(struct file *s, const char __user *buffer,
 {
 	char *buff;
 	int ret,i;
+	struct sock *sk;
 
 	buff = (char *)kmalloc(count+1, GFP_KERNEL);
 	if (IS_ERR(buff)) {
@@ -186,31 +187,6 @@ static ssize_t pmon_write(struct file *s, const char __user *buffer,
 		flush_workqueue(pmon_wq);
 		del_timer(&pmon_timer);
 		pr_info("module deactivated");
-	} else if (buff[0] == 'F') {
-		/* get the socket file descriptor */
-		if (sock_fd != 0)
-			goto exit;
-
-		ret = kstrtoint(&(buff[2]), 10, &sock_fd);
-		if (ret != 0) {
-			pr_err("invalid socket descriptor input");
-			if (ret == -ERANGE)
-				pr_err("range error");
-			else
-				pr_err("format error");
-			sock_fd = 0;
-			goto exit_on_error;
-		}
-
-		pr_info("got the socket fd=%d", sock_fd);
-		sock = sockfd_lookup(sock_fd, &ret);
-		if (!sock) {
-			pr_err("could not find socket, message is %d",
-			       ret);
-			sock_fd = 0;
-			goto exit_on_error;
-		}
-		pr_info("found the socket with fd=%d", sock_fd);
 	} else if (buff[0] == 'P') {
 		/* lookup task by its pid provided */
 		if (pid != -1)
@@ -247,12 +223,17 @@ static ssize_t pmon_write(struct file *s, const char __user *buffer,
 			pr_err("could not get the filetable");
 			goto exit_on_error;
 		}
+
+		i = 0;
 		while(i < files_table->max_fds &&
-		      files_tables->fd[i]) {
+		      files_table->fd[i]) {
 			pr_info("in interation with index %d", i);
 			sock = sock_from_file(files_table->fd[i], &ret);
 			if (sock) {
 				pr_info("found socket in files of the process");
+				sk = sock->sk;
+				if (sk->sk_protocol == IPPROTO_TCP)
+					pr_info("found tcp socket, almost there!");
 			}
 			i++;
 		}
