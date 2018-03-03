@@ -195,7 +195,6 @@ static ssize_t pmon_write(struct file *s, const char __user *buffer,
 
 		ret = kstrtoint(&(buff[2]), 10, &pid);
 		if (ret != 0) {
-			pid = -1;
 			goto exit_on_error;
 		}
 
@@ -203,7 +202,6 @@ static ssize_t pmon_write(struct file *s, const char __user *buffer,
 		task = pid_task(find_vpid(pid), PIDTYPE_PID);
 		if (!task) {
 			pr_err("could not find the task with pid=%d", pid);
-			pid = -1;
 			goto exit_on_error;
 		}
 
@@ -213,12 +211,9 @@ static ssize_t pmon_write(struct file *s, const char __user *buffer,
 		files = task->files;
 		if (!files) {
 			pr_err("could not get files struct");
-			pid = -1;
-			task = NULL;
 			goto exit_on_error;
 		}
 
-		pr_info("starting iteration through fdtable");
 		files_table = files_fdtable(files);
 		if (!files_table) {
 			pr_err("could not get the filetable");
@@ -228,18 +223,23 @@ static ssize_t pmon_write(struct file *s, const char __user *buffer,
 		i = 0;
 		while(i < files_table->max_fds &&
 		      files_table->fd[i]) {
-			pr_info("in interation with index %d", i);
 			sock = sock_from_file(files_table->fd[i], &ret);
 			if (sock) {
-				pr_info("found socket in files of the process");
 				sk = sock->sk;
 				if (sk->sk_protocol == IPPROTO_TCP)
-					pr_info("found tcp socket");
 					inet = inet_sk(sk);
-					pr_info("socket source port is %d",
-						ntohs(inet->inet_sport));
+					if (ntohs(inet->inet_sport) == 80) {
+						break;
+					}
 			}
 			i++;
+			sock = NULL;
+		}
+
+		if (!sock) {
+			pr_err("cloud not find socket with port number 80");
+			ret = -EFAULT;
+			goto exit_on_error;
 		}
 	} else {
 		pr_err("unrecognized command!");
@@ -252,6 +252,11 @@ exit:
 	return count;
 
 exit_on_error:
+	pid = -1;
+	sock = NULL;
+	task = NULL;
+	files_table = NULL;
+	files = NULL;
 	kfree(buff);
 	return ret;
 }
@@ -307,6 +312,8 @@ static int __init pmon_init(void)
 	sock = NULL;
 	pid = -1;
 	task = NULL;
+	files_table = NULL;
+	files = NULL;
 
 	pr_info("module_loaded...\n");
 	return 0;
