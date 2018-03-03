@@ -237,7 +237,7 @@ static ssize_t pmon_write(struct file *s, const char __user *buffer,
 					pr_info("found tcp socket");
 					inet = inet_sk(sk);
 					pr_info("socket source port is %d",
-						inet->inet_sport);
+						ntohs(inet->inet_sport));
 			}
 			i++;
 		}
