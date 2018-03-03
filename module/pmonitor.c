@@ -101,7 +101,6 @@ static void pmon_work_callback(struct work_struct *work)
 	spin_lock_bh(&pmon_lock);
 	list_add_tail(&(entry->llist), &head);
 	spin_unlock_bh(&pmon_lock);
-	pr_info("work completed...\n");
 }
 
 static void *pmon_start(struct seq_file *s, loff_t *pos)
@@ -198,16 +197,12 @@ static ssize_t pmon_write(struct file *s, const char __user *buffer,
 			goto exit_on_error;
 		}
 
-		pr_info("got process id to look for pid=%d", pid);
 		task = pid_task(find_vpid(pid), PIDTYPE_PID);
 		if (!task) {
 			pr_err("could not find the task with pid=%d", pid);
 			goto exit_on_error;
 		}
 
-		pr_info("found task struct with pid=%d", pid);
-
-		/*files = get_files_struct(task);*/
 		files = task->files;
 		if (!files) {
 			pr_err("could not get files struct");
