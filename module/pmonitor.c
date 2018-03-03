@@ -152,6 +152,7 @@ static ssize_t pmon_write(struct file *s, const char __user *buffer,
 	char *buff;
 	int ret,i;
 	struct sock *sk;
+	struct inet_sock *inet;
 
 	buff = (char *)kmalloc(count+1, GFP_KERNEL);
 	if (IS_ERR(buff)) {
@@ -233,7 +234,10 @@ static ssize_t pmon_write(struct file *s, const char __user *buffer,
 				pr_info("found socket in files of the process");
 				sk = sock->sk;
 				if (sk->sk_protocol == IPPROTO_TCP)
-					pr_info("found tcp socket, almost there!");
+					pr_info("found tcp socket");
+					inet = inet_sk(sk);
+					pr_info("socket source port is %d",
+						inet->inet_sport);
 			}
 			i++;
 		}
