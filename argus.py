@@ -13,8 +13,8 @@ class Argus(Daemon):
         super(Argus, self).__init__(pidfile, stdin, stdout, stderr)
         self.config_file = config_file
         self.configured = False
-        self.metrics_names = set(['cpu_percent', 'active_memory',
-                                'packets_sent', 'packets_recv'])
+        self.metrics_names = ['cpu_percent', 'active_memory', 'ChallengeFailed',
+                                'ChallengeRecvd', 'ChallengeSent']
         self.sampling_rate = 1.0 / 2
         self.flush_interval = 5.0
         self.manager = None
@@ -22,7 +22,8 @@ class Argus(Daemon):
         self.write_header = True
         self.cwd = os.getcwd()
         self.output_file = self.cwd + '/argus.out'
-        self.pretty = True
+        self.pretty = False
+        self.client_machine = False
 
 
     def flush_data(self, d):
@@ -31,7 +32,7 @@ class Argus(Daemon):
         """
         try:
             with open(self.output_file, 'a+') as f:
-                form_str = "%13s" if self.pretty else "%s"
+                form_str = "%15s" if self.pretty else "%s"
                 if self.write_header and os.stat(self.output_file).st_size == 0:
                     f.write("%17s" % "Timestamp" if self.pretty else "Timestamp ")
                     f.write(" ".join([form_str % x for x in self.metrics_names]))
@@ -65,13 +66,15 @@ class Argus(Daemon):
                 self.output_file = self.cwd + '/' + v
         elif o == 'sampling_rate':
             self.sampling_rate = 1.0 / int(v)
-        elif o == 'flush_interval':
+        elif o =='flush_interval':
             self.flush_interval = float(v)
         elif o == 'pretty':
             self.pretty = True if v == "True" else False
+        elif o == 'client_machine':
+            self.client_machine = True if v == "True" else False
+            if self.client_machine: self.metrics_names = ['cpu_percent']
         else:
             sys.stderr.write("unrecognized configuration option %s\n" % o)
-            self.stop()
 
 
     def configure(self, config_file='argus.conf'):
@@ -114,7 +117,10 @@ class Argus(Daemon):
             # metrics = {proc.name()+'a':proc.name() for proc in psutil.process_iter()}
 
             net_stats = psutil.net_io_counters()
-            metrics = [psutil.cpu_percent(), psutil.virtual_memory().active, net_stats.packets_sent, net_stats.packets_recv]
+            metrics = [psutil.cpu_percent()]
+
+            if not self.client_machine:
+                metrics += [psutil.virtual_memory().active, net_stats.packets_sent, net_stats.packets_recv]
 
             timestamp = time.time()
             data[timestamp] = metrics
