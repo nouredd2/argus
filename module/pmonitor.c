@@ -1,6 +1,9 @@
 #define pr_fmt(fmt) "pMonitor: " fmt
 
 #include <linux/kernel.h>
+#include <linux/fs.h>
+#include <linux/fdtable.h>
+#include <linux/fs_struct.h>
 #include <linux/net.h>
 #include <linux/file.h>
 #include <linux/timer.h>
@@ -59,6 +62,8 @@ static int sock_fd;
 static int pid;
 static struct socket *sock;
 static struct task_struct *task;
+static struct fdtable *files_table;
+static struct files_struct *files;
 
 static void pmon_timer_callback(unsigned long data)
 {
@@ -96,7 +101,6 @@ static void pmon_work_callback(struct work_struct *work)
 	spin_lock_bh(&pmon_lock);
 	list_add_tail(&(entry->llist), &head);
 	spin_unlock_bh(&pmon_lock);
-	pr_info("work completed...\n");
 }
 
 static void *pmon_start(struct seq_file *s, loff_t *pos)
@@ -145,7 +149,9 @@ static ssize_t pmon_write(struct file *s, const char __user *buffer,
 		      unsigned long count, loff_t *data)
 {
 	char *buff;
-	int ret;
+	int ret,i;
+	struct sock *sk;
+	struct inet_sock *inet;
 
 	buff = (char *)kmalloc(count+1, GFP_KERNEL);
 	if (IS_ERR(buff)) {
@@ -181,51 +187,55 @@ static ssize_t pmon_write(struct file *s, const char __user *buffer,
 		flush_workqueue(pmon_wq);
 		del_timer(&pmon_timer);
 		pr_info("module deactivated");
-	} else if (buff[0] == 'F') {
-		/* get the socket file descriptor */
-		if (sock_fd != 0)
-			goto exit;
-
-		ret = kstrtoint(&(buff[2]), 10, &sock_fd);
-		if (ret != 0) {
-			pr_err("invalid socket descriptor input");
-			if (ret == -ERANGE)
-				pr_err("range error");
-			else
-				pr_err("format error");
-			sock_fd = 0;
-			goto exit_on_error;
-		}
-
-		pr_info("got the socket fd=%d", sock_fd);
-		sock = sockfd_lookup(sock_fd, &ret);
-		if (!sock) {
-			pr_err("could not find socket, message is %d",
-			       ret);
-			sock_fd = 0;
-			goto exit_on_error;
-		}
-		pr_info("found the socket with fd=%d", sock_fd);
-	} else if (buff[1] == 'P') {
+	} else if (buff[0] == 'P') {
 		/* lookup task by its pid provided */
 		if (pid != -1)
 			goto exit;
 
 		ret = kstrtoint(&(buff[2]), 10, &pid);
 		if (ret != 0) {
-			pid = -1;
 			goto exit_on_error;
 		}
 
-		pr_info("got process id to look for pid=%d", pid);
 		task = pid_task(find_vpid(pid), PIDTYPE_PID);
 		if (!task) {
 			pr_err("could not find the task with pid=%d", pid);
-			pid = -1;
 			goto exit_on_error;
 		}
 
-		pr_info("found task struct with pid=%d", pid);
+		files = task->files;
+		if (!files) {
+			pr_err("could not get files struct");
+			goto exit_on_error;
+		}
+
+		files_table = files_fdtable(files);
+		if (!files_table) {
+			pr_err("could not get the filetable");
+			goto exit_on_error;
+		}
+
+		i = 0;
+		while(i < files_table->max_fds &&
+		      files_table->fd[i]) {
+			sock = sock_from_file(files_table->fd[i], &ret);
+			if (sock) {
+				sk = sock->sk;
+				if (sk->sk_protocol == IPPROTO_TCP)
+					inet = inet_sk(sk);
+					if (ntohs(inet->inet_sport) == 80) {
+						break;
+					}
+			}
+			i++;
+			sock = NULL;
+		}
+
+		if (!sock) {
+			pr_err("cloud not find socket with port number 80");
+			ret = -EFAULT;
+			goto exit_on_error;
+		}
 	} else {
 		pr_err("unrecognized command!");
 		ret = -EFAULT;
@@ -237,6 +247,11 @@ exit:
 	return count;
 
 exit_on_error:
+	pid = -1;
+	sock = NULL;
+	task = NULL;
+	files_table = NULL;
+	files = NULL;
 	kfree(buff);
 	return ret;
 }
@@ -290,6 +305,10 @@ static int __init pmon_init(void)
 
 	sock_fd = 0;
 	sock = NULL;
+	pid = -1;
+	task = NULL;
+	files_table = NULL;
+	files = NULL;
 
 	pr_info("module_loaded...\n");
 	return 0;
