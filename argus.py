@@ -113,14 +113,18 @@ class Argus(Daemon):
         data = dict()
         while True:
             # REPLACE -p 2948 WITH PID OF DAEMON
-            # subprocess.call(["top", "-n1"], stdout=file(self.output_file, 'w+'))
             # metrics = {proc.name()+'a':proc.name() for proc in psutil.process_iter()}
 
-            net_stats = psutil.net_io_counters()
             metrics = [psutil.cpu_percent()]
 
             if not self.client_machine:
-                metrics += [psutil.virtual_memory().active, net_stats.packets_sent, net_stats.packets_recv]
+                metrics += [psutil.virtual_memory().active]
+
+                netstat_results = subprocess.check_output(['netstat', '-s']).decode('ascii')
+                puzzles = [line.strip() for line in netstat_results.split('\n') if 'TCPSYNChallenge' in line]
+                if puzzles: metrics += puzzles
+                else: sys.stdout.write('No puzzles recorded')
+
 
             timestamp = time.time()
             data[timestamp] = metrics
