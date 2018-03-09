@@ -1,4 +1,5 @@
 argus.out
+daemon_data.bz2
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

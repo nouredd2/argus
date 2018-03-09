@@ -1,10 +1,8 @@
 #!/usr/bin/env python
 
-import sys,time,os
+import sys, time, os
 from daemon import Daemon
-# from apache_manager import ApacheManager
-import subprocess
-import psutil
+import subprocess, psutil
 
 
 class Argus(Daemon):
@@ -124,7 +122,6 @@ class Argus(Daemon):
                 puzzles = [line.strip() for line in netstat_results.split('\n') if 'TCPSYNChallenge' in line]
                 if puzzles: metrics += puzzles
                 else: sys.stdout.write('No puzzles recorded')
-
 
             timestamp = time.time()
             data[timestamp] = metrics
