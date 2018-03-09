@@ -9,7 +9,7 @@ Argus is composed of two tools:
 * Argus.py: A python daemon that monitors CPU usage, memory usage, and TCP SYN challenges sent, received, and failed
 * Argus module: A Linux kernel module that monitors the size of a TCP socket's listen and accept queues
 
-## Prerequisits
+## Prerequisites
 
 `argus.py` requires the presence of the `psutil` python package, you can install it using `pip`:
 
