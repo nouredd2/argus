@@ -135,7 +135,7 @@ class Argus(Daemon):
                 # metrics += [psutil.virtual_memory().active]
 
                 netstat_results = subprocess.check_output(['netstat', '-s']).decode('ascii')
-                puzzles = [line.strip().split[': '][1] for line in netstat_results.split('\n') if 'TCPSYNChallenge' in line]
+                puzzles = [line.strip().split(': ')[1] for line in netstat_results.split('\n') if 'TCPSYNChallenge' in line]
                 if puzzles: metrics += puzzles
 
             timestamp = time.time()
