@@ -22,6 +22,7 @@ class Argus(Daemon):
         self.output_file = self.cwd + '/argus.out'
         self.pretty = False
         self.client_machine = False
+        self.clean = False
 
 
     def flush_data(self, d):
@@ -71,6 +72,8 @@ class Argus(Daemon):
         elif o == 'client_machine':
             self.client_machine = True if v == "True" else False
             if self.client_machine: self.metrics_names = ['cpu_percent']
+        elif o == 'clean':
+            self.clean = True if v == "True" else False
         else:
             sys.stderr.write("unrecognized configuration option %s\n" % o)
 
@@ -102,11 +105,22 @@ class Argus(Daemon):
         self.configured = True
 
 
+    def clean_results(self):
+        compress_filename = '/'.join(self.output_file.rsplit('/')[:-1]) + '/daemon_data.bz2'
+        for file in [self.output_file, compress_filename]:
+            try:
+                os.remove(file)
+            except OSError: pass
+
+
     # override the run method
     def run(self):
         if not self.configured:
             sys.stderr.write("Argus monitoring agent is not configured.\n")
             self.stop()
+
+        if self.clean:
+            self.clean_results()
 
         data = dict()
         while True:
@@ -121,7 +135,6 @@ class Argus(Daemon):
                 netstat_results = subprocess.check_output(['netstat', '-s']).decode('ascii')
                 puzzles = [line.strip() for line in netstat_results.split('\n') if 'TCPSYNChallenge' in line]
                 if puzzles: metrics += puzzles
-                else: sys.stdout.write('No puzzles recorded')
 
             timestamp = time.time()
             data[timestamp] = metrics
