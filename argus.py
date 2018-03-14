@@ -137,8 +137,8 @@ class Argus(Daemon):
                 netstat_results = subprocess.check_output(['netstat', '-s']).decode('ascii')
                 # The TCP attributes we are looking for
                 tcp_attr = ['TCPSYNChallengeFailed', 'TCPSYNChallengeRecvd', 'TCPSYNChallengeSent']
-                puzzles = [line.strip().split(': ')[1] for line in netstat_results.split('\n') if line in tcp_attr]
-                if puzzles: metrics += puzzles
+                puzzles = [line.strip().split(': ')[1] for line in netstat_results.split('\n') if any(attr in line for attr in tcp_attr)]
+                metrics += puzzles
 
             timestamp = time.time()
             data[timestamp] = metrics
