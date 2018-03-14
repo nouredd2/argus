@@ -3,7 +3,7 @@
 import sys, time, os
 from daemon import Daemon
 import subprocess
-# import psutil
+import psutil
 
 
 class Argus(Daemon):
@@ -128,14 +128,16 @@ class Argus(Daemon):
             # REPLACE -p 2948 WITH PID OF DAEMON
             # metrics = {proc.name()+'a':proc.name() for proc in psutil.process_iter()}
 
-            # metrics = [psutil.cpu_percent()]
-            metrics = []
+            metrics = [psutil.cpu_percent()]
 
+            # Only record CPU usage on client machines
             if not self.client_machine:
-                # metrics += [psutil.virtual_memory().active]
+                metrics += [psutil.virtual_memory().active]
 
                 netstat_results = subprocess.check_output(['netstat', '-s']).decode('ascii')
-                puzzles = [line.strip().split(': ')[1] for line in netstat_results.split('\n') if 'TCPSYNChallenge' in line]
+                # The TCP attributes we are looking for
+                tcp_attr = ['TCPSYNChallengeFailed', 'TCPSYNChallengeRecvd', 'TCPSYNChallengeSent']
+                puzzles = [line.strip().split(': ')[1] for line in netstat_results.split('\n') if line in tcp_attr]
                 if puzzles: metrics += puzzles
 
             timestamp = time.time()
