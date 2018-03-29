@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 # Credit goes to Sander Marechal
-import sys,os,time,atexit
+import sys, os, time, atexit
 from signal import SIGTERM
 
 

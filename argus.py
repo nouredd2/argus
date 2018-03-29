@@ -1,9 +1,11 @@
 #!/usr/bin/env python
 
-import sys, time, os
-from daemon import Daemon
+import os
 import subprocess
+import sys
+import time
 import psutil
+from daemon import Daemon
 
 
 class Argus(Daemon):
@@ -13,7 +15,7 @@ class Argus(Daemon):
         self.config_file = config_file
         self.configured = False
         self.metrics_names = ['cpu_percent', 'active_memory', 'ChallengeFailed',
-                                'ChallengeRecvd', 'ChallengeSent']
+                              'ChallengeRecvd', 'ChallengeSent']
         self.sampling_rate = 1.0 / 2
         self.flush_interval = 5.0
         self.manager = None
@@ -24,7 +26,6 @@ class Argus(Daemon):
         self.pretty = False
         self.client_machine = False
         self.clean = False
-
 
     def flush_data(self, d):
         """
@@ -38,11 +39,11 @@ class Argus(Daemon):
                     f.write(" ".join([form_str % x for x in self.metrics_names]))
                     self.write_header = False
 
-                for timestamp,metrics in d.iteritems():
+                for timestamp, metrics in d.iteritems():
                     f.write("\n%lf" % timestamp)
                     if not self.pretty: f.write(" ")
                     if isinstance(metrics, dict):
-                        for key,val in metrics.iteritems():
+                        for key, val in metrics.iteritems():
                             f.write(val)
                     elif isinstance(metrics, list):
                         f.write(" ".join([form_str % x for x in metrics]))
@@ -51,7 +52,6 @@ class Argus(Daemon):
         except IOError:
             sys.stderr.write("Error opening output file %s\n" % self.output_file)
             self.stop()
-
 
     def apply_config_option(self, o, v):
         """
@@ -66,7 +66,7 @@ class Argus(Daemon):
                 self.output_file = self.cwd + '/' + v
         elif o == 'sampling_rate':
             self.sampling_rate = 1.0 / int(v)
-        elif o =='flush_interval':
+        elif o == 'flush_interval':
             self.flush_interval = float(v)
         elif o == 'pretty':
             self.pretty = True if v == "True" else False
@@ -78,12 +78,12 @@ class Argus(Daemon):
         else:
             sys.stderr.write("unrecognized configuration option %s\n" % o)
 
-
     def configure(self, config_file='argus.conf'):
         """
         Read the configuration for the argus daemon from the config file.
         Defaults to reading argus.conf in the current directory
         """
+        opts = []
         try:
             with open(config_file, 'r') as f:
                 opts = [line.rstrip('\n') for line in f]
@@ -105,14 +105,13 @@ class Argus(Daemon):
 
         self.configured = True
 
-
     def clean_results(self):
         compress_filename = '/'.join(self.output_file.rsplit('/')[:-1]) + '/daemon_data.bz2'
-        for file in [self.output_file, compress_filename]:
+        for filename in [self.output_file, compress_filename]:
             try:
-                os.remove(file)
-            except OSError: pass
-
+                os.remove(filename)
+            except OSError:
+                pass
 
     # override the run method
     def run(self):
@@ -137,7 +136,8 @@ class Argus(Daemon):
                 netstat_results = subprocess.check_output(['netstat', '-s']).decode('ascii')
                 # The TCP attributes we are looking for
                 tcp_attr = ['TCPSYNChallengeFailed', 'TCPSYNChallengeRecvd', 'TCPSYNChallengeSent']
-                puzzles = [line.strip().split(': ')[1] for line in netstat_results.split('\n') if any(attr in line for attr in tcp_attr)]
+                puzzles = [line.strip().split(': ')[1] for line in netstat_results.split('\n') if
+                           any(attr in line for attr in tcp_attr)]
                 metrics += puzzles
 
             timestamp = time.time()
@@ -152,11 +152,9 @@ class Argus(Daemon):
                 self.flush_data(data)
                 data.clear()
 
-
     def start(self):
         self.configure()
         super(Argus, self).start()
-
 
     def stop(self):
         super(Argus, self).stop()
@@ -175,9 +173,9 @@ if __name__ == "__main__":
         elif 'restart' == sys.argv[1]:
             daemon.restart()
         else:
-            print "Unknow command"
+            print("Unknow command")
             sys.exit(2)
         sys.exit(0)
     else:
-        print "usage: %s start|stop|restart" % sys.argv[0]
+        print("usage: %s start|stop|restart" % sys.argv[0])
         sys.exit(2)
