@@ -296,7 +296,7 @@ static int __init pmon_init(void)
 	 */
 	INIT_WORK(&pmon_work, pmon_work_callback);
 
-	proc_entry = proc_create("pmonitor", 0, NULL, &pmon_file_ops);
+	proc_entry = proc_create("pmonitor", 0666, NULL, &pmon_file_ops);
 	if (!proc_entry) {
 		pr_err("failed to create procfs entry...\n");
 		ret = -ENOMEM;
