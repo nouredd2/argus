@@ -163,7 +163,7 @@ class Argus(Daemon):
 
 
 if __name__ == "__main__":
-    daemon = Argus('/tmp/daemon-example.pid', stdout='/tmp/logs/argus.out', stderr='/tmp/logs/argus.err')
+    daemon = Argus('/tmp/daemon-example.pid', stdout='/tmp/logs/argus_std.out', stderr='/tmp/logs/argus_std.err')
 
     if len(sys.argv) == 2:
         if 'start' == sys.argv[1]:

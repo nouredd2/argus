@@ -13,10 +13,16 @@ class Daemon(object):
     """
 
     def __init__(self, pidfile, stdin='/dev/null', stdout='/dev/null', stderr='/dev/null'):
-        self.stdin = stdin
-        self.stdout = stdout
-        self.stderr = stderr
-        self.pidfile = pidfile
+        self.cwd = os.getcwd()
+
+        if stdin[0] == '/': self.stdin = stdin
+        else: self.stdin = self.cwd + '/' + stdin
+        if stdout[0] == '/': self.stdout = stdout
+        else: self.stdout = self.cwd + '/' + stdout
+        if stderr[0] == '/': self.stderr = stderr
+        else: self.stderr = self.cwd + '/' + stderr
+        if pidfile[0] == '/': self.pidfile = pidfile
+        else: self.pidfile = self.cwd + '/' + pidfile
 
     def daemonize(self):
         """
@@ -51,9 +57,20 @@ class Daemon(object):
         # redirect standard file descriptors
         sys.stdout.flush()
         sys.stderr.flush()
+
+        # create all the directories of the std files
+        if not os.path.exists(os.path.dirname(self.stdin)):
+            os.makedirs(os.path.dirname(self.stdin))
         si = file(self.stdin, 'r')
+
+        if not os.path.exists(os.path.dirname(self.stdout)):
+            os.makedirs(os.path.dirname(self.stdout))
         so = file(self.stdout, 'a+')
+
+        if not os.path.exists(os.path.dirname(self.stderr)):
+            os.makedirs(os.path.dirname(self.stderr))
         se = file(self.stderr, 'a+', 0)
+
         os.dup2(si.fileno(), sys.stdin.fileno())
         os.dup2(so.fileno(), sys.stdout.fileno())
         os.dup2(se.fileno(), sys.stderr.fileno())
@@ -61,6 +78,8 @@ class Daemon(object):
         # write pidfile
         atexit.register(self.delpid)
         pid = str(os.getpid())
+        if not os.path.exists(os.path.dirname(self.pidfile)):
+            os.makedirs(os.path.dirname(self.pidfile))
         file(self.pidfile, 'w+').write("%s\n" % pid)
 
     def delpid(self):
