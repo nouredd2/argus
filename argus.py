@@ -127,7 +127,7 @@ class Argus(Daemon):
             metrics = [psutil.cpu_percent()]
 
             # Only record CPU usage on client machines
-            if not self.client_machine:
+            if not self.client_machine or 'client' not in subprocess.check_output(['hostname']):
                 metrics += [psutil.virtual_memory().active]
 
                 netstat_results = subprocess.check_output(['netstat', '-s']).decode('ascii')
