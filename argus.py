@@ -36,7 +36,7 @@ class Argus(Daemon):
                 form_str = "%15s" if self.pretty else "%s"
                 if self.write_header and os.stat(self.output_file).st_size == 0:
                     f.write("%17s" % "Timestamp" if self.pretty else "Timestamp ")
-                    f.write(" ".join([form_str % x for x in self.metrics_names]))
+                    f.write(" ".join([form_str % x for i,x in enumerate(self.metrics_names) if i < len(d.values()[0])]))
                     self.write_header = False
 
                 for timestamp, metrics in d.iteritems():
