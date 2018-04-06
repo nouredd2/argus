@@ -124,9 +124,6 @@ class Argus(Daemon):
 
         data = dict()
         while True:
-            # REPLACE -p 2948 WITH PID OF DAEMON
-            # metrics = {proc.name()+'a':proc.name() for proc in psutil.process_iter()}
-
             metrics = [psutil.cpu_percent()]
 
             # Only record CPU usage on client machines
@@ -173,7 +170,7 @@ if __name__ == "__main__":
         elif 'restart' == sys.argv[1]:
             daemon.restart()
         else:
-            print("Unknow command")
+            print("Unknown command")
             sys.exit(2)
         sys.exit(0)
     else:
