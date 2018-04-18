@@ -24,7 +24,7 @@ class Argus(Daemon):
         self.cwd = os.getcwd()
         self.output_file = self.cwd + '/argus.out'
         self.pretty = False
-        self.client_machine = False
+        self.client_machine = 'client' in subprocess.check_output(['hostname'])
         self.clean = False
 
     def flush_data(self, d):
@@ -70,9 +70,6 @@ class Argus(Daemon):
             self.flush_interval = float(v)
         elif o == 'pretty':
             self.pretty = True if v == "True" else False
-        elif o == 'client_machine':
-            self.client_machine = True if v == "True" else False
-            if self.client_machine: self.metrics_names = ['cpu_percent']
         elif o == 'clean':
             self.clean = True if v == "True" else False
         else:
@@ -127,7 +124,7 @@ class Argus(Daemon):
             metrics = [psutil.cpu_percent()]
 
             # Only record CPU usage on client machines
-            if not self.client_machine or 'client' not in subprocess.check_output(['hostname']):
+            if not self.client_machine:
                 metrics += [psutil.virtual_memory().active]
 
                 netstat_results = subprocess.check_output(['netstat', '-s']).decode('ascii')
