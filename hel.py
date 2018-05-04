@@ -14,9 +14,9 @@ class Hel(Daemon):
         self.interval = 20  # run every  20 seconds by default
 
     def change_difficulty(self, k, m):
-        cmd = "sudo /proj/ILLpuzzle/puzzles-utils/scripts/set_difficulty.sh {} {}".format(k,m)
+        cmd = "sudo /proj/ILLpuzzle/puzzles-utils/scripts/set_difficulty.sh {} {}".format(k, m)
         subprocess.call(cmd.split(' '))
-        sys.stdout.write("Changing puzzles difficulty to ({},{})".format(k,m))
+        sys.stdout.write("{}: Changing puzzles difficulty to ({},{})".format(time.ctime(), k, m))
 
     def run(self):
         while True:
@@ -24,18 +24,21 @@ class Hel(Daemon):
             module_out = subprocess.check_output(('tail', '-n', '1'), stdin=cat.stdin).decode('ascii')
 
             line = module_out.strip().split(';')[-1]
-            accept_queue_len = int(line)
+            try:
+                accept_queue_len = int(line)
 
-            if accept_queue_len < 1024:
-                self.change_difficulty(2, 14)
-            elif accept_queue_len < 2048:
-                self.change_difficulty(2, 15)
-            elif accept_queue_len < 3072:
-                self.change_difficulty(2, 16)
-            else:
-                self.change_difficulty(2, 17)
-
-            time.sleep(self.interval)
+                if accept_queue_len < 1024:
+                    self.change_difficulty(2, 14)
+                elif accept_queue_len < 2048:
+                    self.change_difficulty(2, 15)
+                elif accept_queue_len < 3072:
+                    self.change_difficulty(2, 16)
+                else:
+                    self.change_difficulty(2, 17)
+            except:
+                sys.stderr.write("{}: Got {} from the module".format(time.ctime(), line))
+            finally:
+                time.sleep(self.interval)
 
     def start(self):
         super(Hel, self).start()
