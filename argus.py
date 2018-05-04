@@ -5,6 +5,7 @@ import subprocess
 import sys
 import time
 import psutil
+import collections
 from daemon import Daemon
 
 
@@ -119,7 +120,7 @@ class Argus(Daemon):
         if self.clean:
             self.clean_results()
 
-        data = dict()
+        data = collections.OrderedDict()
         while True:
             metrics = [psutil.cpu_percent()]
 
