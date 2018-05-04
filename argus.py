@@ -6,6 +6,7 @@ import sys
 import time
 import psutil
 import collections
+import signal
 from daemon import Daemon
 
 
@@ -27,6 +28,18 @@ class Argus(Daemon):
         self.pretty = False
         self.client_machine = 'client' in subprocess.check_output(['hostname'])
         self.clean = False
+        self.data = collections.OrderedDict()
+        self.kill_now = False
+
+        # signal handlers
+        signal.signal(signal.SIGINT, self.flush_and_leave)
+        signal.signal(signal.SIGTERM, self.flush_and_leave)
+
+    def flush_and_leave(self, signum, frame):
+        """
+        Gracefully exit when getting sigint or sigterm
+        """
+        self.kill_now = True
 
     def flush_data(self, d):
         """
@@ -120,8 +133,12 @@ class Argus(Daemon):
         if self.clean:
             self.clean_results()
 
-        data = collections.OrderedDict()
         while True:
+            if self.kill_now:
+                self.flush_data(self.data)
+                sys.stdout.write("Argus monitor leaving gracefully\n")
+                break
+
             metrics = [psutil.cpu_percent()]
 
             # Only record CPU usage on client machines
@@ -136,16 +153,16 @@ class Argus(Daemon):
                 metrics += puzzles
 
             timestamp = time.time()
-            data[timestamp] = metrics
-
-            time.sleep(self.sampling_rate)
+            self.data[timestamp] = metrics
 
             # check if should be flushing to file
             if self.last_flush == 0.0:
                 self.last_flush = timestamp
             elif (timestamp - self.last_flush) > self.flush_interval:
-                self.flush_data(data)
-                data.clear()
+                self.flush_data(self.data)
+                self.data.clear()
+
+            time.sleep(self.sampling_rate)
 
     def start(self):
         self.configure()
