@@ -16,7 +16,7 @@ class Hel(Daemon):
     def change_difficulty(self, k, m):
         cmd = "sudo /proj/ILLpuzzle/puzzles-utils/scripts/set_difficulty.sh {} {}".format(k, m)
         subprocess.call(cmd.split(' '))
-        sys.stdout.write("{}: Changing puzzles difficulty to ({},{})".format(time.ctime(), k, m))
+        sys.stdout.write("{}: Changing puzzles difficulty to ({},{})\n".format(time.ctime(), k, m))
 
     def run(self):
         while True:
@@ -24,6 +24,7 @@ class Hel(Daemon):
             module_out = subprocess.check_output(('tail', '-n', '1'), stdin=cat.stdin).decode('ascii')
 
             line = module_out.strip().split(';')[-1]
+            sys.stdout.write("hel running...at {}\n".format(time.ctime()))
             try:
                 accept_queue_len = int(line)
 
@@ -36,7 +37,7 @@ class Hel(Daemon):
                 else:
                     self.change_difficulty(2, 17)
             except:
-                sys.stderr.write("{}: Got {} from the module".format(time.ctime(), line))
+                sys.stderr.write("{}: Got {} from the module\n".format(time.ctime(), line))
             finally:
                 time.sleep(self.interval)
 
