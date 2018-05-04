@@ -21,10 +21,11 @@ class Hel(Daemon):
     def run(self):
         while True:
             cat = subprocess.Popen(('cat', self.proc_file), stdout=subprocess.PIPE)
-            module_out = subprocess.check_output(('tail', '-n', '1'), stdin=cat.stdin).decode('ascii')
+            module_out = subprocess.check_output(('tail', '-n', '1'), stdin=cat.stdout).decode('ascii')
+            sys.stderr.write("module out is {}\n".format(module_out))
 
             line = module_out.strip().split(';')[-1]
-            sys.stdout.write("hel running...at {}\n".format(time.ctime()))
+            sys.stderr.write("hel running...at {}\n".format(time.ctime()))
             try:
                 accept_queue_len = int(line)
 
