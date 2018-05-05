@@ -79,8 +79,8 @@ class Argus(Daemon):
                 self.output_file = v
             else:
                 self.output_file = self.cwd + '/' + v
-        elif o == 'sampling_rate':
-            self.sampling_rate = 1.0 / int(v)
+        elif o == 'sampling_interval':
+            self.sampling_rate = float(v)
         elif o == 'flush_interval':
             self.flush_interval = float(v)
         elif o == 'pretty':
