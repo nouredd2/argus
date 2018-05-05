@@ -136,7 +136,7 @@ class Argus(Daemon):
         while True:
             if self.kill_now:
                 self.flush_data(self.data)
-                sys.stdout.write("Argus monitor leaving gracefully\n")
+                sys.stdout.write("At {}: Argus monitor leaving gracefully\n".format(time.ctime()))
                 break
 
             metrics = [psutil.cpu_percent()]
