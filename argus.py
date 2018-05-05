@@ -134,6 +134,7 @@ class Argus(Daemon):
         if self.clean:
             self.clean_results()
 
+        timestamp = 0
         while True:
             if self.kill_now:
                 self.flush_data(self.data)
@@ -154,15 +155,18 @@ class Argus(Daemon):
                                any(attr in line for attr in tcp_attr)]
                     metrics += puzzles
 
-                timestamp = time.time()
+                # timestamp = time.time()
                 self.data[timestamp] = metrics
+                timestamp = timestamp + 1
+                sys.stdout.write("At {}: Argus monitor captures data point\n".format(time.ctime()))
             except:
                 sys.stderr.write("At {}: Argus monitor encountered an error that got caught\n".format(time.ctime()))
             finally:
                 # check if should be flushing to file
+                ts = time.time()
                 if self.last_flush == 0.0:
-                    self.last_flush = timestamp
-                elif (timestamp - self.last_flush) > self.flush_interval:
+                    self.last_flush = ts
+                elif (ts - self.last_flush) > self.flush_interval:
                     self.flush_data(self.data)
                     self.data.clear()
 
