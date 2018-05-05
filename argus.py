@@ -39,6 +39,7 @@ class Argus(Daemon):
         """
         Gracefully exit when getting sigint or sigterm
         """
+        sys.stdout.write("At time {}: Argus monitor caught singal {}\n".format(time.ctime(), signum))
         self.kill_now = True
 
     def flush_data(self, d):
@@ -139,30 +140,33 @@ class Argus(Daemon):
                 sys.stdout.write("At {}: Argus monitor leaving gracefully\n".format(time.ctime()))
                 break
 
-            metrics = [psutil.cpu_percent()]
+            try:
+                metrics = [psutil.cpu_percent()]
 
-            # Only record CPU usage on client machines
-            if not self.client_machine:
-                metrics += [psutil.virtual_memory().active]
+                # Only record CPU usage on client machines
+                if not self.client_machine:
+                    metrics += [psutil.virtual_memory().active]
 
-                netstat_results = subprocess.check_output(['netstat', '-s']).decode('ascii')
-                # The TCP attributes we are looking for
-                tcp_attr = ['TCPSYNChallengeFailed', 'TCPSYNChallengeRecvd', 'TCPSYNChallengeSent']
-                puzzles = [line.strip().split(': ')[1] for line in netstat_results.split('\n') if
-                           any(attr in line for attr in tcp_attr)]
-                metrics += puzzles
+                    netstat_results = subprocess.check_output(['netstat', '-s']).decode('ascii')
+                    # The TCP attributes we are looking for
+                    tcp_attr = ['TCPSYNChallengeFailed', 'TCPSYNChallengeRecvd', 'TCPSYNChallengeSent']
+                    puzzles = [line.strip().split(': ')[1] for line in netstat_results.split('\n') if
+                               any(attr in line for attr in tcp_attr)]
+                    metrics += puzzles
 
-            timestamp = time.time()
-            self.data[timestamp] = metrics
+                timestamp = time.time()
+                self.data[timestamp] = metrics
+            except:
+                sys.stderr.write("At {}: Argus monitor encountered an error that got caught\n".format(time.ctime()))
+            finally:
+                # check if should be flushing to file
+                if self.last_flush == 0.0:
+                    self.last_flush = timestamp
+                elif (timestamp - self.last_flush) > self.flush_interval:
+                    self.flush_data(self.data)
+                    self.data.clear()
 
-            # check if should be flushing to file
-            if self.last_flush == 0.0:
-                self.last_flush = timestamp
-            elif (timestamp - self.last_flush) > self.flush_interval:
-                self.flush_data(self.data)
-                self.data.clear()
-
-            time.sleep(self.sampling_rate)
+                time.sleep(self.sampling_rate)
 
     def start(self):
         self.configure()
