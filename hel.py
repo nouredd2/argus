@@ -30,27 +30,27 @@ class Hel(Daemon):
             try:
                 accept_queue_len = int(line)
 
-                if accept_queue_len <= last_seen_len / 2.0:
-                    last_difficulty = last_difficulty - 1
-                    self.change_difficulty(2, last_difficulty)
-                elif accept_queue_len >= last_seen_len * 2.0:
-                    last_difficulty = 17
+                # if accept_queue_len <= last_seen_len / 2.0:
+                #     last_difficulty = last_difficulty - 1
+                #     self.change_difficulty(2, last_difficulty)
+                # elif accept_queue_len >= last_seen_len * 2.0:
+                #     last_difficulty = 17
+                #     self.change_difficulty(2, 17)
+                #
+                # last_seen_len = accept_queue_len
+
+                if accept_queue_len < 128:
+                    self.change_difficulty(2, 12)
+                elif accept_queue_len < 256:
+                    self.change_difficulty(2, 13)
+                elif accept_queue_len < 512:
+                    self.change_difficulty(2, 14)
+                elif accept_queue_len < 1024:
+                    self.change_difficulty(2, 15)
+                elif accept_queue_len < 2048:
+                    self.change_difficulty(2, 16)
+                else:
                     self.change_difficulty(2, 17)
-
-                last_seen_len = accept_queue_len
-
-#                if accept_queue_len < 128:
-#                    self.change_difficulty(2, 12)
-#                elif accept_queue_len < 256:
-#                    self.change_difficulty(2, 13)
-#                elif accept_queue_len < 512:
-#                    self.change_difficulty(2, 14)
-#                elif accept_queue_len < 1024:
-#                    self.change_difficulty(2, 15)
-#                elif accept_queue_len < 2048:
-#                    self.change_difficulty(2, 16)
-#                else:
-#                    self.change_difficulty(2, 17)
 
                 # should probably do this by bitwise manipulation!
 #                if accept_queue_len > 0:
