@@ -3,6 +3,7 @@
 import sys
 import time
 import subprocess
+import math
 from daemon import Daemon
 
 
@@ -22,21 +23,17 @@ class Hel(Daemon):
         while True:
             cat = subprocess.Popen(('cat', self.proc_file), stdout=subprocess.PIPE)
             module_out = subprocess.check_output(('tail', '-n', '1'), stdin=cat.stdout).decode('ascii')
-            sys.stderr.write("module out is {}\n".format(module_out))
 
             line = module_out.strip().split(';')[-1]
-            sys.stderr.write("hel running...at {}\n".format(time.ctime()))
             try:
                 accept_queue_len = int(line)
 
-                if accept_queue_len < 1024:
-                    self.change_difficulty(2, 14)
-                elif accept_queue_len < 2048:
-                    self.change_difficulty(2, 15)
-                elif accept_queue_len < 3072:
-                    self.change_difficulty(2, 16)
-                else:
+                # should probably do this by bitwise manipulation!
+                msb = math.ceil(math.log(accept_queue_len, 2))
+                if accept_queue_len >= 4096:
                     self.change_difficulty(2, 17)
+                else:
+                    self.change_difficulty(2, msb + 5)
             except:
                 sys.stderr.write("{}: Got {} from the module\n".format(time.ctime(), line))
             finally:
