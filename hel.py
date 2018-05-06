@@ -29,7 +29,11 @@ class Hel(Daemon):
                 accept_queue_len = int(line)
 
                 # should probably do this by bitwise manipulation!
-                msb = math.ceil(math.log(accept_queue_len, 2))
+                if accept_queue_len > 0:
+                    msb = math.ceil(math.log(accept_queue_len, 2))
+                else:
+                    msb = 0
+
                 if accept_queue_len >= 4096:
                     self.change_difficulty(2, 17)
                 else:
