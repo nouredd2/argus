@@ -12,7 +12,7 @@ class Hel(Daemon):
                  stderr='/dev/null/'):
         super(Hel, self).__init__(pidfile, stdin, stdout, stderr)
         self.proc_file = "/proc/pmonitor"
-        self.interval = 20  # run every  20 seconds by default
+        self.interval = 5  # run every  20 seconds by default
 
     def change_difficulty(self, k, m):
         cmd = "sudo /proj/ILLpuzzle/puzzles-utils/scripts/set_difficulty.sh {} {}".format(k, m)
@@ -28,16 +28,29 @@ class Hel(Daemon):
             try:
                 accept_queue_len = int(line)
 
-                # should probably do this by bitwise manipulation!
-                if accept_queue_len > 0:
-                    msb = math.ceil(math.log(accept_queue_len, 2))
+                if accept_queue_len < 128:
+                    self.change_difficulty(2, 12)
+                elif accept_queue_len < 256:
+                    self.change_difficulty(2, 13)
+                elif accept_queue_len < 512:
+                    self.change_difficulty(2, 14)
+                elif accept_queue_len < 1024:
+                    self.change_difficulty(2, 15)
+                elif accept_queue_len < 2048:
+                    self.change_difficulty(2, 16)
                 else:
-                    msb = 0
-
-                if accept_queue_len >= 4096:
                     self.change_difficulty(2, 17)
-                else:
-                    self.change_difficulty(2, msb + 5)
+
+                # should probably do this by bitwise manipulation!
+#                if accept_queue_len > 0:
+#                    msb = math.ceil(math.log(accept_queue_len, 2))
+#                else:
+#                    msb = 0
+#
+#                if accept_queue_len >= 4096:
+#                    self.change_difficulty(2, 17)
+#                else:
+#                    self.change_difficulty(2, msb + 5)
             except:
                 sys.stderr.write("{}: Got {} from the module\n".format(time.ctime(), line))
             finally:
