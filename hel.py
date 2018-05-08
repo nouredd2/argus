@@ -39,29 +39,29 @@ class Hel(Daemon):
                 #
                 # last_seen_len = accept_queue_len
 
-                if accept_queue_len < 128:
-                    self.change_difficulty(2, 12)
-                elif accept_queue_len < 256:
-                    self.change_difficulty(2, 13)
-                elif accept_queue_len < 512:
-                    self.change_difficulty(2, 14)
-                elif accept_queue_len < 1024:
-                    self.change_difficulty(2, 15)
-                elif accept_queue_len < 2048:
-                    self.change_difficulty(2, 16)
-                else:
-                    self.change_difficulty(2, 17)
+                # if accept_queue_len < 128:
+                #     self.change_difficulty(2, 12)
+                # elif accept_queue_len < 256:
+                #     self.change_difficulty(2, 13)
+                # elif accept_queue_len < 512:
+                #     self.change_difficulty(2, 14)
+                # elif accept_queue_len < 1024:
+                #     self.change_difficulty(2, 15)
+                # elif accept_queue_len < 2048:
+                #     self.change_difficulty(2, 16)
+                # else:
+                #     self.change_difficulty(2, 17)
 
                 # should probably do this by bitwise manipulation!
-#                if accept_queue_len > 0:
-#                    msb = math.ceil(math.log(accept_queue_len, 2))
-#                else:
-#                    msb = 0
-#
-#                if accept_queue_len >= 4096:
-#                    self.change_difficulty(2, 17)
-#                else:
-#                    self.change_difficulty(2, msb + 5)
+                if accept_queue_len > 0:
+                    msb = math.ceil(math.log(accept_queue_len, 2))
+                else:
+                    msb = 0
+
+                if accept_queue_len >= 4096:
+                    self.change_difficulty(2, 17)
+                else:
+                    self.change_difficulty(2, min(17, msb + 10))
             except:
                 sys.stderr.write("{}: Got {} from the module\n".format(time.ctime(), line))
             finally:
