@@ -58,10 +58,14 @@ class Hel(Daemon):
                 else:
                     msb = 0
 
-                if accept_queue_len >= 4096:
+                if accept_queue_len >= 2048:
                     self.change_difficulty(2, 17)
-                else:
-                    self.change_difficulty(2, min(17, msb + 10))
+                elif accept_queue_len >= 1024:
+                    self.change_difficulty(2, 16)
+                elif accept_queue_len < 1024:
+                    self.change_difficulty(2, 15)
+
+                #    self.change_difficulty(2, min(17, msb + 10))
             except:
                 sys.stderr.write("{}: Got {} from the module\n".format(time.ctime(), line))
             finally:
